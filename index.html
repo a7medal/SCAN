@@ -1,4 +1,5 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html{color-scheme:light dark}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>ماسح بطاقة الهوية</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -100,6 +101,10 @@ h1{margin:0;font-size:clamp(26px,4vw,38px);line-height:1.15;font-weight:700;text
 .ed-stage{display:grid;place-items:center;background:var(--desk);border-radius:10px;padding:8px;overflow:hidden}
 .ed-stage canvas{max-width:100%;touch-action:none;cursor:crosshair;display:block}
 .ed-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+#print-img{display:none}
+@media print{@page{size:A4;margin:0}html,body{background:#fff!important;padding:0!important}
+  body>*:not(#print-img){display:none!important}
+  #print-img{display:block;width:210mm;height:297mm;margin:0;padding:0}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -219,6 +224,7 @@ h1{margin:0;font-size:clamp(26px,4vw,38px);line-height:1.15;font-weight:700;text
   </div>
 </div>
 
+<img id="print-img" alt="">
 <div class="overlay" id="pv">
   <div class="ed" role="dialog" aria-modal="true" aria-labelledby="pv-t">
     <h3 id="pv-t">صورة الورقة جاهزة للطباعة</h3>
@@ -602,6 +608,16 @@ async function buildPdf(cv){
 }
 async function save(kind,forPrint){
   var msg=$('#msg');msg.className='note';
+  if(!window.claude){ /* opened as a normal page in a browser: real download and real print */
+    msg.textContent='جارٍ تجهيز الملف…';await wait(30);
+    var cv0=document.createElement('canvas');renderA4(cv0,false);
+    if(forPrint){
+      var pb=await toBlob(cv0,'image/png');var im=$('#print-img');
+      im.src=URL.createObjectURL(pb);try{await im.decode()}catch(e){}
+      msg.textContent='';window.print();return}
+    var fb=kind==='pdf'?await buildPdf(cv0):await toBlob(cv0,'image/png');
+    var a=document.createElement('a');a.href=URL.createObjectURL(fb);a.download=kind==='pdf'?'id-card-A4.pdf':'id-card-A4.png';
+    document.body.appendChild(a);a.click();a.remove();msg.textContent='تم تنزيل الملف.';return}
   var dl=null;try{dl=await claude.use('downloads')}catch(e){}
   if(!dl){await showImage();return}
   msg.textContent='جارٍ تجهيز الملف…';await wait(30);

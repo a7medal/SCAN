@@ -219,6 +219,14 @@ h1{margin:0;font-size:clamp(26px,4vw,38px);line-height:1.15;font-weight:700;text
   </div>
 </div>
 
+<div class="overlay" id="pv">
+  <div class="ed" role="dialog" aria-modal="true" aria-labelledby="pv-t">
+    <h3 id="pv-t">صورة الورقة جاهزة للطباعة</h3>
+    <p class="note">الحفظ المباشر غير متاح في هذا العرض. على الجوال اضغط مطولًا على الصورة واختر «حفظ الصورة» أو «مشاركة». على الكمبيوتر اضغط بالزر الأيمن واختر «حفظ الصورة باسم». ثم افتحها واطبعها على ورق A4 بحجم 100% ومن دون «ملاءمة الصفحة».</p>
+    <div class="ed-stage"><img id="pv-img" alt="ورقة A4 جاهزة للطباعة" style="max-width:100%;height:auto;background:#fff;display:block"></div>
+    <div class="ed-actions"><span></span><button class="btn primary" id="pv-close">إغلاق</button></div>
+  </div>
+</div>
 <div class="overlay" id="ov">
   <div class="ed" role="dialog" aria-modal="true" aria-labelledby="ed-t">
     <h3 id="ed-t">ضبط حواف البطاقة</h3>
@@ -595,7 +603,7 @@ async function buildPdf(cv){
 async function save(kind,forPrint){
   var msg=$('#msg');msg.className='note';
   var dl=null;try{dl=await claude.use('downloads')}catch(e){}
-  if(!dl){msg.className='note err';msg.textContent='الحفظ غير متاح في هذا العرض. افتح الصفحة في المتصفح الكامل لتنزيل الملف.';return}
+  if(!dl){await showImage();return}
   msg.textContent='جارٍ تجهيز الملف…';await wait(30);
   var cv=document.createElement('canvas');renderA4(cv,false);
   try{
@@ -603,9 +611,18 @@ async function save(kind,forPrint){
     await dl.save({filename:kind==='pdf'?'id-card-A4.pdf':'id-card-A4.png',data:blob});
     msg.textContent=forPrint?'تم حفظ ملف الطباعة. افتحه واضغط Ctrl+P (أو زر الطباعة في عارض PDF)، ثم اختر الحجم الفعلي 100% وورق A4.':'تم تجهيز الملف. افتحه واطبعه بحجم 100%.';
   }catch(e){
-    msg.className='note err';msg.textContent=(e&&e.code==='declined')?'أُلغي الحفظ.':'تعذّر حفظ الملف. حاول مرة أخرى.';
+    if(e&&e.code==='declined'){msg.textContent='أُلغي الحفظ.';return}
+    await showImage();
   }
 }
+var pvUrl=null;
+async function showImage(){
+  var msg=$('#msg');msg.className='note';msg.textContent='جارٍ تجهيز الصورة…';await wait(30);
+  var cv=document.createElement('canvas');renderA4(cv,false);
+  var blob=await toBlob(cv,'image/jpeg',.95);if(pvUrl)URL.revokeObjectURL(pvUrl);pvUrl=URL.createObjectURL(blob);
+  $('#pv-img').src=pvUrl;$('#pv').classList.add('on');msg.textContent='';
+}
+$('#pv-close').addEventListener('click',function(){$('#pv').classList.remove('on')});
 $('#dl-pdf').addEventListener('click',function(){save('pdf')});
 $('#print').addEventListener('click',function(){save('pdf',true)});
 $('#dl-png').addEventListener('click',function(){save('png')});
